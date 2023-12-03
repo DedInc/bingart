@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='bingart',
-    version='1.0.0',
+    version='1.0.1',
     author='Maehdakvan',
     author_email='visitanimation@google.com',
     description='bingart is an unofficial 🤫 API wrapper for Bing Image Creator (based on DALL-E 3).',

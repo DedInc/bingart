@@ -48,7 +48,7 @@ class BingArt:
             try:
                 ID = r.text.split(';id=')[1].split('"')[0]
             except IndexError:
-                PromptRejectedError('Error! Your prompt has been rejected for ethical reasons.')
+                raise PromptRejectedError('Error! Your prompt has been rejected for ethical reasons.')
 
             IG = r.text.split('IG:"')[1].split('"')[0]
 
