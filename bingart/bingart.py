@@ -39,7 +39,10 @@ class BingArt:
             except IndexError:
                 raise AuthCookieError('Auth cookie failed!')
 
-        url = f'https://www.bing.com/images/create?{encoded_query}&rt=' + '4' if coins > 0 else '3' + '&FORM=GENCRE'
+        url = f'https://www.bing.com/images/create?{encoded_query}&rt='
+        rt = '4' if coins > 0 else '3'
+        url += rt
+        url += '&FORM=GENCRE'
 
         with requests.Session() as session:
             session.headers = headers
