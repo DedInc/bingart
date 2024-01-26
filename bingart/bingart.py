@@ -10,18 +10,23 @@ class PromptRejectedError(Exception):
     pass
 
 class BingArt:
-    def __init__(self, auth_cookie):
-        self.auth_cookie = auth_cookie
+    def __init__(self, auth_cookie_U, auth_cookie_KievRPSSecAuth=''):
+        self.auth_cookie_U = auth_cookie_U
+        self.auth_cookie_KievRPSSecAuth = auth_cookie_KievRPSSecAuth
 
     def generate_images(self, query):        
         encoded_query = urlencode({'q': query})
+        
+        cookie_str = f'_U={self.auth_cookie_U}; KievRPSSecAuth={self.auth_cookie_KievRPSSecAuth}'
+        if self.auth_cookie_KievRPSSecAuth == '':
+            cookie_str = f'_U={self.auth_cookie_U}'
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1474.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Referer': 'https://www.bing.com/images/create',
             'Accept-Language': 'en-US;q=0.6,en;q=0.5',
-            'Cookie': f'_U={self.auth_cookie}'
+            'Cookie': cookie_str
         }
 
         data = {

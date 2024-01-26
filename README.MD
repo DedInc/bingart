@@ -22,7 +22,10 @@ Import and instantiate the `BingArt` class with a valid `_U` cookie value:
 ```python
 from bingart import BingArt
 
-bing = BingArt(auth_cookie='...')
+bing = BingArt(auth_cookie_U='...')
+
+# in some cases, `KievRPSSecAuth` cookie might be needed as well
+bing = BingArt(auth_cookie_U='...', auth_cookie_KievRPSSecAuth='...')
 ```
 
 Call `generate_images()` with your query text:
