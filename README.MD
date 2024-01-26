@@ -11,8 +11,8 @@ This module uses web scraping and engineering techniques to interface with Bing'
 ### 🔑 Key Features
 
 - 🖼️ **Generate images** by providing a text prompt
-- 📸 **Get image URLs** - up to 4 generated images  
-- 🔐 **Authentication** via saved Bing cookies
+- 📸 **Get image URLs** up to 4 generated images  
+- 🔐 **Authentication** via saved Bing cookies or auto-fetched from browsers
 - ⚠️ **Custom exceptions** for common issues
 
 ## 💻 Usage
@@ -22,11 +22,27 @@ Import and instantiate the `BingArt` class with a valid `_U` cookie value:
 ```python
 from bingart import BingArt
 
-bing = BingArt(auth_cookie_U='...')
+bing_art = BingArt(auth_cookie_U='...')
 
-# in some cases, `KievRPSSecAuth` cookie might be needed as well
-bing = BingArt(auth_cookie_U='...', auth_cookie_KievRPSSecAuth='...')
+try:
+    results = bing_art.generate_images('sunset')
+    print(results)
+finally:
+    bing_art.close_session()
 ```
+
+### Sometimes an extra cookie called `KievRPSSecAuth` is required for it to work properly
+
+```python
+bing_art = BingArt(auth_cookie_U='...', auth_cookie_KievRPSSecAuth='...')
+```
+
+### Also, you can try the auto cookie search feature
+
+```python
+bing_art = BingArt(auto=True)
+```
+
 
 Call `generate_images()` with your query text:
 

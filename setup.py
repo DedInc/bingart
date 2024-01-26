@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='bingart',
-    version='1.0.2',
+    version='1.0.3',
     author='Maehdakvan',
     author_email='visitanimation@google.com',
     description='bingart is an unofficial API wrapper for Bing Image Creator (based on DALL-E 3).',
@@ -22,6 +22,6 @@ setup(
     ],
     packages=find_packages(),
     include_package_data = True,
-    install_requires = ['requests'],
+    install_requires = ['requests', 'browser-cookie-3x', 'psutil'],
     python_requires='>=3.6'
 )
