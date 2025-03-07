@@ -1,8 +1,7 @@
 import requests
 import re
 import time
-import psutil
-import browser_cookie_3x as bc
+import rookiepy
 from urllib.parse import urlencode
 
 class AuthCookieError(Exception):
@@ -12,16 +11,7 @@ class PromptRejectedError(Exception):
     pass
 
 class BingArt:
-    browser_procs = {
-        bc.chrome: 'chrome.exe',
-        bc.yandex: 'browser.exe',
-        bc.firefox: 'firefox.exe',
-        bc.edge: 'msedge.exe',
-        bc.opera: 'launcher.exe',
-        bc.opera_gx: 'launcher.exe'
-    }
-
-    def __init__(self, auth_cookie_U, auth_cookie_KievRPSSecAuth=None, auto=False):
+    def __init__(self, auth_cookie_U=None, auth_cookie_KievRPSSecAuth=None, auto=False):
         self.session = requests.Session()
         self.base_url = 'https://www.bing.com/images/create'
 
@@ -33,42 +23,32 @@ class BingArt:
 
         self.headers = self._prepare_headers()
 
-    def kill_proc(self, proc):
-        for process in psutil.process_iter(['name']):
-            if process.info['name'] == proc:
-                try:
-                    process.kill()
-                except:
-                    pass
-
     def scan_cookies(self, cookies):
         auth_cookie_U = auth_cookie_KievRPSSecAuth = None
         for cookie in cookies:
-            if cookie.domain == '.bing.com':
-                if cookie.name == '_U':
-                    auth_cookie_U = cookie.value
-                elif cookie.name == 'KievRPSSecAuth':
-                    auth_cookie_KievRPSSecAuth = cookie.value
+            if cookie['domain'] == '.bing.com':
+                if cookie['name'] == '_U':
+                    auth_cookie_U = cookie['value']
+                elif cookie['name'] == 'KievRPSSecAuth':
+                    auth_cookie_KievRPSSecAuth = cookie['value']
         return auth_cookie_U, auth_cookie_KievRPSSecAuth
 
-    def get_auth_cookies(self, after_check=False):
-        for browser in self.browser_procs:
+    def get_auth_cookies(self):
+        known_browsers = [
+            'arc', 'brave', 'chrome', 'chromium', 'edge', 'firefox',
+            'librewolf', 'octo_browser', 'opera', 'opera_gx', 'vivaldi'
+        ]
+
+        for browser_name in known_browsers:
             try:
-                cookies = browser()
+                browser_func = getattr(rookiepy, browser_name)
+                cookies = browser_func()
                 auth_cookie_U, auth_cookie_KievRPSSecAuth = self.scan_cookies(cookies)
                 if auth_cookie_U:
                     return auth_cookie_U, auth_cookie_KievRPSSecAuth
-            except PermissionError as e:
-                if after_check:
-                    self.kill_proc(self.browser_procs[browser])
-                    cookies = browser()
-                    auth_cookie_U, auth_cookie_KievRPSSecAuth = self.scan_cookies(cookies)
-                    if auth_cookie_U:
-                        return auth_cookie_U, auth_cookie_KievRPSSecAuth
-            except Exception as e:
-                pass
-        if not after_check:
-            return self.get_auth_cookies(True)
+            except Exception:
+                continue
+
         raise AuthCookieError('Failed to fetch authentication cookies automatically.')
 
     def _prepare_headers(self):
@@ -89,7 +69,7 @@ class BingArt:
     def _get_balance(self):
         response = self.session.get(self.base_url)
         try:
-            coins = int(re.search('bal" aria-label="(\d+) ', response.text).group(1))
+            coins = int(re.search(r'bal" aria-label="(\d+) ', response.text).group(1))
         except AttributeError:
             raise AuthCookieError('Auth cookie failed!')
         return coins
