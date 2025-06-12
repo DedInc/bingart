@@ -69,7 +69,7 @@ class BingArt:
     def _get_balance(self):
         response = self.session.get(self.base_url)
         try:
-            coins = int(re.search(r'bal" aria-label="(\d+) ', response.text).group(1))
+            coins = int(re.search(r'<div id="reward_c" data-tb="(\d+)"', response.text).group(1))
         except AttributeError:
             raise AuthCookieError('Auth cookie failed!')
         return coins
