@@ -11,7 +11,8 @@ This module uses web scraping and engineering techniques to interface with Bing'
 ### 🔑 Key Features
 
 - 🖼️ **Generate images** by providing a text prompt
-- 📸 **Get image URLs** up to 4 generated images  
+- 🎥 **Generate videos** by providing a text prompt
+- 📸 **Get image URLs** up to 4 generated images
 - 🔐 **Authentication** via saved Bing cookies or auto-fetched from browsers
 - ⚠️ **Custom exceptions** for common issues
 
@@ -46,8 +47,14 @@ bing_art = BingArt(auto=True)
 
 Call `generate_images()` with your query text:
 
-```python 
-results = bing.generate_images("a cat painting in Picasso style")
+```python
+results = bing_art.generate_images("a cat painting in Picasso style")
+```
+
+And for videos:
+
+```python
+results = bing_art.generate_video("a dancing cat")
 ```
 
 The return value contains image URLs and original prompt: 
@@ -58,6 +65,17 @@ The return value contains image URLs and original prompt:
     {"url": "https://..."}
   ],
   "prompt": "a cat painting in Picasso style"
+}
+```
+
+For video generation, the output will be:
+
+```json
+{
+  "video": {
+    "video_url": "https://..."
+  },
+  "prompt": "a dancing cat"
 }
 ```
 
