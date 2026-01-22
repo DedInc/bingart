@@ -1,164 +1,282 @@
-import requests
 import re
 import time
-import rookiepy
 from urllib.parse import urlencode
+from enum import Enum
+from curl_cffi import requests
+import rookiepy
+
+
+class Model(Enum):
+    DALLE = 0
+    GPT4O = 1
+    MAI1 = 4
+
+
+class Aspect(Enum):
+    SQUARE = 1
+    LANDSCAPE = 2
+    PORTRAIT = 3
+
 
 class AuthCookieError(Exception):
     pass
 
+
 class PromptRejectedError(Exception):
     pass
 
+
 class BingArt:
-    def __init__(self, auth_cookie_U=None, auth_cookie_KievRPSSecAuth=None, auto=False):
-        self.session = requests.Session()
-        self.base_url = 'https://www.bing.com/images/create'
+    def __init__(self, auth_cookie_U=None, auto=False):
+        self.session = requests.Session(impersonate="chrome")
+        self.base_url = "https://www.bing.com/images/create"
 
         if auto:
-            self.auth_cookie_U, self.auth_cookie_KievRPSSecAuth = self.get_auth_cookies()
+            self.auth_cookie_U = self.get_auth_cookie()
         else:
             self.auth_cookie_U = auth_cookie_U
-            self.auth_cookie_KievRPSSecAuth = auth_cookie_KievRPSSecAuth
 
-        self.headers = self._prepare_headers()
+        self.IG = None
+        self.Salt = None
+        self.EventID = None
+
+        self._prepare_headers()
+        self._fetch_g_config()
 
     def scan_cookies(self, cookies):
-        auth_cookie_U = auth_cookie_KievRPSSecAuth = None
         for cookie in cookies:
-            if cookie['domain'] == '.bing.com':
-                if cookie['name'] == '_U':
-                    auth_cookie_U = cookie['value']
-                elif cookie['name'] == 'KievRPSSecAuth':
-                    auth_cookie_KievRPSSecAuth = cookie['value']
-        return auth_cookie_U, auth_cookie_KievRPSSecAuth
+            if cookie["domain"] == ".bing.com" and cookie["name"] == "_U":
+                return cookie["value"]
+        return None
 
-    def get_auth_cookies(self):
+    def get_auth_cookie(self):
         known_browsers = [
-            'arc', 'brave', 'chrome', 'chromium', 'edge', 'firefox',
-            'librewolf', 'octo_browser', 'opera', 'opera_gx', 'vivaldi'
+            "chrome",
+            "edge",
+            "firefox",
+            "brave",
+            "opera",
+            "vivaldi",
+            "chromium",
         ]
-
         for browser_name in known_browsers:
             try:
                 browser_func = getattr(rookiepy, browser_name)
                 cookies = browser_func()
-                auth_cookie_U, auth_cookie_KievRPSSecAuth = self.scan_cookies(cookies)
+                auth_cookie_U = self.scan_cookies(cookies)
                 if auth_cookie_U:
-                    return auth_cookie_U, auth_cookie_KievRPSSecAuth
+                    return auth_cookie_U
             except Exception:
                 continue
+        raise AuthCookieError("Failed to fetch authentication cookies automatically.")
 
-        raise AuthCookieError('Failed to fetch authentication cookies automatically.')
-
-    def _prepare_headers(self, content_type='image'):
-        cookie_str = ''
-        if self.auth_cookie_U:
-            cookie_str += f'_U={self.auth_cookie_U};'
-        if self.auth_cookie_KievRPSSecAuth:
-            cookie_str += f' KievRPSSecAuth={self.auth_cookie_KievRPSSecAuth};'
-
+    def _prepare_headers(self):
         base_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cookie': cookie_str
+            "authority": "www.bing.com",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "content-type": "application/x-www-form-urlencoded",
+            "origin": "https://www.bing.com",
+            "referer": "https://www.bing.com/images/create",
+            "upgrade-insecure-requests": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         }
+        self.session.headers.update(base_headers)
+        if self.auth_cookie_U:
+            self.session.cookies.set("_U", self.auth_cookie_U, domain=".bing.com")
 
-        if content_type == 'video':
-            base_headers['Referer'] = f'{self.base_url}?ctype=video'
-            base_headers['Content-Type'] = 'application/x-www-form-urlencoded'
-        else:
-            base_headers['Referer'] = self.base_url
-
-        return base_headers
-
-    def _get_balance(self):
+    def _fetch_g_config(self):
         response = self.session.get(self.base_url)
-        try:
-            coins = 15 - int(re.search(r'<div id="reward_c" data-tb="(\d+)"', response.text).group(1))
-        except AttributeError:
-            raise AuthCookieError('Auth cookie failed!')
-        return coins
+        self._parse_g_config(response.text)
+        self._update_cookies()
 
-    def _fetch_images(self, encoded_query, ID, IG):
-        images = []
+    def _parse_g_config(self, html):
+        ig_match = re.search(r'IG:"([^"]+)"', html)
+        if ig_match:
+            self.IG = ig_match.group(1)
+
+        salt_match = re.search(r'Salt:"([^"]+)"', html)
+        if salt_match:
+            self.Salt = salt_match.group(1)
+
+        event_id_match = re.search(r'EventID:"([^"]+)"', html)
+        if event_id_match:
+            self.EventID = event_id_match.group(1)
+
+    def _update_cookies(self):
+        hv = int(time.time())
+        srchhpgusr = f"SRCHLANG=ru&HV={hv}&HVE={self.Salt or ''}&IG={self.IG or ''}"
+        self.session.cookies.set("SRCHHPGUSR", srchhpgusr, domain=".bing.com")
+
+    def _fetch_images(self, encoded_query, ID, model=Model.DALLE):
         while True:
-            response = self.session.get(f'{self.base_url}/async/results/{ID}?{encoded_query}&IG={IG}&IID=images.as'.replace('&nfy=1', ''))
-            if 'text/css' in response.text:
+            url = f"{self.base_url}/async/results/{ID}?{encoded_query}&IG={self.IG}&IID=images.as"
+            response = self.session.get(url)
+            if "text/css" in response.text:
+                mdl_value = model.value if isinstance(model, Model) else model
+
+                if mdl_value == Model.GPT4O.value:
+                    if "imgri-inner-container strm" in response.text:
+                        time.sleep(5)
+                        continue
+
+                    src_urls = re.findall(
+                        r'src="(https://th\.bing\.com/th/id/OIG[^"]+)"', response.text
+                    )
+                    images = []
+                    for src_url in src_urls:
+                        base_url = src_url.split("?")[0] if "?" in src_url else src_url
+                        clean_url = base_url + "?pid=ImgGn"
+                        images.append({"url": clean_url})
+                    if images:
+                        enhanced_prompt = None
+                        selcap_match = re.search(
+                            r'data-selcap="([^"]+)"', response.text
+                        )
+                        if selcap_match:
+                            enhanced_prompt = selcap_match.group(1)
+                        else:
+                            alt_match = re.search(
+                                r'<img[^>]*class="image-row-img[^"]*"[^>]*alt="([^"]+)"',
+                                response.text,
+                            )
+                            if alt_match:
+                                enhanced_prompt = alt_match.group(1)
+                        return {"images": images, "enhanced_prompt": enhanced_prompt}
+
+                    time.sleep(5)
+                    continue
+
                 src_urls = re.findall(r'src="([^"]+)"', response.text)
+                images = []
                 for src_url in src_urls:
-                    if '?' in src_url:
-                        clean_url = src_url.split('?')[0] + '?pid=ImgGn'
-                        images.append({'url': clean_url})
-                return images
+                    if "?" in src_url:
+                        clean_url = src_url.split("?")[0] + "?pid=ImgGn"
+                        images.append({"url": clean_url})
+                if images:
+                    enhanced_prompt = None
+                    selcap_match = re.search(r'data-selcap="([^"]+)"', response.text)
+                    if selcap_match:
+                        enhanced_prompt = selcap_match.group(1)
+                    else:
+                        alt_match = re.search(
+                            r'<img[^>]*class="image-row-img[^"]*"[^>]*alt="([^"]+)"',
+                            response.text,
+                        )
+                        if alt_match:
+                            enhanced_prompt = alt_match.group(1)
+                    return {"images": images, "enhanced_prompt": enhanced_prompt}
             time.sleep(5)
 
     def _fetch_video(self, encoded_query, ID):
         while True:
-            response = self.session.get(f'{self.base_url}/async/results/{ID}?{encoded_query}&ctype=video&sm=1&girftp=1')
+            url = f"{self.base_url}/async/results/{ID}?{encoded_query}&IG={self.IG}&ctype=video&sm=1&girftp=1"
+            response = self.session.get(url)
+
             try:
-                result = response.json()
-                if result.get('errorMessage') == 'Pending':
+                if "errorMessage" in response.text and "Pending" in response.text:
                     time.sleep(5)
                     continue
-                elif result.get('showContent'):
-                    return {'video_url': result['showContent']}
-                else:
-                    return None
-            except ValueError:
-                video_url = re.search(r'ourl="([^"]+)"', response.text)
-                if video_url:
-                    return {'video_url': video_url.group(1)}
-                else:
-                    time.sleep(5)
-                    continue
-    
+
+                if "showContent" in response.text:
+                    try:
+                        data = response.json()
+                        if data.get("showContent"):
+                            return {"video_url": data["showContent"]}
+                    except Exception:
+                        pass
+
+                video_url_match = re.search(r'ourl="([^"]+)"', response.text)
+                if video_url_match:
+                    return {"video_url": video_url_match.group(1)}
+
+            except Exception:
+                pass
+
+            time.sleep(5)
+
     def _handle_creation_error(self, response):
-        if 'data-clarity-tag="BlockedByContentPolicy"' in response.text or 'girer_center block_icon' in response.text:
-            raise PromptRejectedError('Error! Your prompt has been rejected for content policy reasons.')
-        else:
-            raise AuthCookieError('Auth cookie failed!')
+        if (
+            'data-clarity-tag="BlockedByContentPolicy"' in response.text
+            or "girer_center block_icon" in response.text
+        ):
+            raise PromptRejectedError("Prompt rejected for content policy.")
+        raise AuthCookieError("Auth failed or generic error.")
 
-    def generate(self, query, content_type='image'):
-        encoded_query = urlencode({'q': query})
-        
-        if content_type == 'image':
-            headers = self.headers
-            coins = self._get_balance()
-            rt = '4' if coins > 0 else '3'
-            creation_url = f'{self.base_url}?{encoded_query}&rt={rt}&FORM=GENCRE'
-        elif content_type == 'video':
-            headers = self._prepare_headers(content_type='video')
-            creation_url = f'{self.base_url}?{encoded_query}&rt=4&FORM=GENCRE&ctype=video&pt=4&sm=1'
-        else:
-            raise ValueError("content_type must be 'image' or 'video'")
+    def generate(
+        self, query, model=Model.DALLE, aspect=Aspect.SQUARE, content_type="image"
+    ):
+        mdl_value = model.value if isinstance(model, Model) else model
+        ar_value = aspect.value if isinstance(aspect, Aspect) else aspect
 
-        self.session.headers.update(headers)
-        response = self.session.post(creation_url, data={'q': query})
+        params = {
+            "q": query,
+            "FORM": "GENCRE",
+        }
+        if self.IG:
+            params["IG"] = self.IG
+
+        if content_type == "video":
+            self.session.headers["referer"] = f"{self.base_url}?ctype=video"
+            params.update(
+                {
+                    "rt": "3",
+                    "mdl": "0",
+                    "ar": "1",
+                    "ctype": "video",
+                    "pt": "3",
+                    "sm": "0",
+                }
+            )
+            payload = {"q": query, "model": "dalle", "aspectRatio": "1:1"}
+        else:
+            self.session.headers["referer"] = self.base_url
+            model_body_map = {0: "dalle", 1: "gpt4o", 4: "maiimage1"}
+            aspect_body_map = {1: "1:1", 2: "7:4", 3: "4:7"}
+
+            body_model = model_body_map.get(mdl_value, "dalle")
+            body_aspect = aspect_body_map.get(ar_value, "1:1")
+
+            rt_value = "3" if mdl_value == 0 else "4"
+
+            params.update({"rt": rt_value, "mdl": str(mdl_value), "ar": str(ar_value)})
+            payload = {"q": query, "model": body_model, "aspectRatio": body_aspect}
+
+        response = self.session.post(
+            self.base_url, params=params, data=payload, allow_redirects=False
+        )
 
         try:
-            if content_type == 'image':
-                ID = re.search(';id=([^"]+)"', response.text).group(1)
-                IG = re.search('IG:"([^"]+)"', response.text).group(1)
-            else:
-                ID = re.search(r'id=([^&]+)', response.url).group(1)
-                IG = None
-        except AttributeError:
+            redirect_url = response.headers.get("Location", "") or response.text
+            if redirect_url.startswith("/"):
+                redirect_url = f"https://www.bing.com{redirect_url}"
+
+            id_match = re.search(r'id=([^&"]+)', redirect_url)
+            if not id_match:
+                self._handle_creation_error(response)
+
+            ID = id_match.group(1)
+
+            if response.headers.get("Location"):
+                self.session.get(redirect_url)
+
+        except Exception:
             self._handle_creation_error(response)
 
-        if content_type == 'image':
-            result = self._fetch_images(encoded_query, ID, IG)
-            return {'images': result, 'prompt': query}
-        else:
+        encoded_query = urlencode({"q": query})
+
+        if content_type == "video":
             result = self._fetch_video(encoded_query, ID)
-            return {'video': result, 'prompt': query}
+            return {"video": result, "prompt": query}
+        else:
+            result = self._fetch_images(encoded_query, ID, model)
+            enhanced_prompt = result.get("enhanced_prompt")
+            final_prompt = enhanced_prompt if enhanced_prompt else query
+            return {
+                "images": result["images"],
+                "prompt": final_prompt,
+                "model": model.name if isinstance(model, Model) else model,
+                "aspect": aspect.name if isinstance(aspect, Aspect) else aspect,
+            }
 
-    def generate_images(self, query):
-        return self.generate(query, content_type='image')
-
-    def generate_video(self, query):
-        return self.generate(query, content_type='video')
-
-    def close_session(self):
+    def close(self):
         self.session.close()

@@ -1,27 +1,27 @@
 from setuptools import setup, find_packages
 
-with open('README.md', 'r', encoding='utf-8') as f:
+with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name='bingart',
-    version='1.1.2',
-    author='Maehdakvan',
-    author_email='visitanimation@google.com',
-    description='bingart is an unofficial API wrapper for Bing Image & Video Creator (based on DALL-E 3).',
+    name="bingart",
+    version="1.5.0",
+    author="Maehdakvan",
+    author_email="visitanimation@google.com",
+    description="bingart is an unofficial API wrapper for Bing Image & Video Creator.",
     long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/DedInc/bingart',
+    long_description_content_type="text/markdown",
+    url="https://github.com/DedInc/bingart",
     project_urls={
-        'Bug Tracker': 'https://github.com/DedInc/bingart/issues',
+        "Bug Tracker": "https://github.com/DedInc/bingart/issues",
     },
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
     ],
     packages=find_packages(),
-    include_package_data = True,
-    install_requires = ['requests', 'rookiepy'],
-    python_requires='>=3.6'
+    include_package_data=True,
+    install_requires=["curl_cffi", "rookiepy"],
+    python_requires=">=3.6",
 )
