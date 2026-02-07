@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="bingart",
-    version="1.5.0",
+    version="1.5.1",
     author="Maehdakvan",
     author_email="visitanimation@google.com",
-    description="bingart is an unofficial API wrapper for Bing Image & Video Creator.",
+    description="bingart is an unofficial async API wrapper for Bing Image & Video Creator",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/DedInc/bingart",

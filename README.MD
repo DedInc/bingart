@@ -1,21 +1,23 @@
 # bingart
 
-bingart is an unofficial API wrapper for Bing Image & Video Creator. It allows you to programmatically generate AI-powered images and videos using Bing's creation tools with support for multiple models and aspect ratios.
+bingart is an unofficial async API wrapper for Bing Image & Video Creator. It allows you to programmatically generate AI-powered images and videos using Bing's creation tools with support for multiple models and aspect ratios.
 
 > **Warning:** The `_U` auth cookie should be changed every 2-4 weeks for proper functionality.
 
-## Description 
+## Description
 
-This module uses web scraping and engineering techniques to interface with Bing's internal image and video creation APIs. It is not an official API client. 
+This module uses web scraping and engineering techniques to interface with Bing's internal image and video creation APIs. It is not an official API client.
 
 ### Key Features
 
+- **Fully asynchronous** — built on `curl_cffi` `AsyncSession` and `asyncio`
 - **Generate images** with multiple AI models (DALL-E, GPT-4O, MAI1)
 - **Generate videos** from text prompts
 - **Custom aspect ratios** (Square, Landscape, Portrait)
-- **Get image URLs** - up to 4 generated images per request
+- **Get image URLs** — up to 4 generated images per request
 - **Flexible authentication** via cookies or auto-fetched from browsers
-- **Enhanced prompts** - get AI-improved versions of your prompts
+- **Enhanced prompts** — get AI-improved versions of your prompts
+- **Async context manager** support (`async with`)
 - **Custom exceptions** for common error handling
 
 ## Installation
@@ -31,17 +33,32 @@ pip install bingart
 Import and instantiate the `BingArt` class with a valid `_U` cookie value:
 
 ```python
+import asyncio
 from bingart import BingArt
 
-# Initialize with authentication cookie
-bing_art = BingArt(auth_cookie_U='your_cookie_value_here')
+async def main():
+    bing_art = BingArt(auth_cookie_U='your_cookie_value_here')
+    try:
+        result = await bing_art.generate('sunset over mountains')
+        print(result)
+    finally:
+        await bing_art.close()
 
-try:
-    # Generate images
-    result = bing_art.generate('sunset over mountains')
-    print(result)
-finally:
-    bing_art.close()
+asyncio.run(main())
+```
+
+### Using Async Context Manager (Recommended)
+
+```python
+import asyncio
+from bingart import BingArt
+
+async def main():
+    async with BingArt(auth_cookie_U='your_cookie_value_here') as bing_art:
+        result = await bing_art.generate('sunset over mountains')
+        print(result)
+
+asyncio.run(main())
 ```
 
 ### Auto Cookie Detection
@@ -67,35 +84,36 @@ Supported browsers for auto-detection:
 ### Advanced Usage with Models and Aspect Ratios
 
 ```python
+import asyncio
 from bingart import BingArt, Model, Aspect
 
-bing_art = BingArt(auth_cookie_U='your_cookie_value')
+async def main():
+    async with BingArt(auth_cookie_U='your_cookie_value') as bing_art:
+        # Generate with GPT-4O model in portrait aspect
+        result = await bing_art.generate(
+            'a futuristic cityscape',
+            model=Model.GPT4O,
+            aspect=Aspect.PORTRAIT
+        )
+        print(result)
 
-# Generate with GPT-4O model in portrait aspect
-result = bing_art.generate(
-    'a futuristic cityscape',
-    model=Model.GPT4O,
-    aspect=Aspect.PORTRAIT
-)
-print(result)
+        # Generate with MAI1 model in landscape aspect
+        result = await bing_art.generate(
+            'serene mountain landscape',
+            model=Model.MAI1,
+            aspect=Aspect.LANDSCAPE
+        )
+        print(result)
 
-# Generate with MAI1 model in landscape aspect
-result = bing_art.generate(
-    'serene mountain landscape',
-    model=Model.MAI1,
-    aspect=Aspect.LANDSCAPE
-)
-print(result)
+        # Generate with DALL-E (default) in square aspect
+        result = await bing_art.generate(
+            'abstract art composition',
+            model=Model.DALLE,
+            aspect=Aspect.SQUARE
+        )
+        print(result)
 
-# Generate with DALL-E (default) in square aspect
-result = bing_art.generate(
-    'abstract art composition',
-    model=Model.DALLE,
-    aspect=Aspect.SQUARE
-)
-print(result)
-
-bing_art.close()
+asyncio.run(main())
 ```
 
 ### Available Models
@@ -121,18 +139,18 @@ Aspect.PORTRAIT    # 4:7 (tall)
 ### Video Generation
 
 ```python
+import asyncio
 from bingart import BingArt
 
-bing_art = BingArt(auth_cookie_U='your_cookie_value')
+async def main():
+    async with BingArt(auth_cookie_U='your_cookie_value') as bing_art:
+        result = await bing_art.generate(
+            'a dancing robot in a futuristic city',
+            content_type='video'
+        )
+        print(result)
 
-# Generate a video
-result = bing_art.generate(
-    'a dancing robot in a futuristic city',
-    content_type='video'
-)
-print(result)
-
-bing_art.close()
+asyncio.run(main())
 ```
 
 ## Output Format
@@ -167,18 +185,20 @@ bing_art.close()
 ## Exception Handling
 
 ```python
+import asyncio
 from bingart import BingArt, AuthCookieError, PromptRejectedError
 
-try:
-    bing_art = BingArt(auth_cookie_U='your_cookie_value')
-    result = bing_art.generate('your prompt here')
-    print(result)
-except AuthCookieError:
-    print("Invalid authentication cookie or session expired")
-except PromptRejectedError:
-    print("Prompt was rejected due to content policy violation")
-finally:
-    bing_art.close()
+async def main():
+    try:
+        async with BingArt(auth_cookie_U='your_cookie_value') as bing_art:
+            result = await bing_art.generate('your prompt here')
+            print(result)
+    except AuthCookieError:
+        print("Invalid authentication cookie or session expired")
+    except PromptRejectedError:
+        print("Prompt was rejected due to content policy violation")
+
+asyncio.run(main())
 ```
 
 ### Available Exceptions
@@ -197,83 +217,61 @@ finally:
 ## Complete Example
 
 ```python
+import asyncio
 from bingart import BingArt, Model, Aspect, AuthCookieError, PromptRejectedError
 
-def main():
+async def main():
     try:
-        # Initialize with auto cookie detection
-        bing_art = BingArt(auto=True)
-        
-        # Generate multiple images with different settings
-        prompts = [
-            {
-                "query": "cyberpunk cityscape at night",
-                "model": Model.GPT4O,
-                "aspect": Aspect.LANDSCAPE
-            },
-            {
-                "query": "portrait of a mystical wizard",
-                "model": Model.DALLE,
-                "aspect": Aspect.PORTRAIT
-            },
-            {
-                "query": "abstract geometric patterns",
-                "model": Model.MAI1,
-                "aspect": Aspect.SQUARE
-            }
-        ]
-        
-        for config in prompts:
-            print(f"\nGenerating: {config['query']}")
-            result = bing_art.generate(
-                config['query'],
-                model=config['model'],
-                aspect=config['aspect']
+        async with BingArt(auto=True) as bing_art:
+            # Generate multiple images with different settings
+            prompts = [
+                {
+                    "query": "cyberpunk cityscape at night",
+                    "model": Model.GPT4O,
+                    "aspect": Aspect.LANDSCAPE
+                },
+                {
+                    "query": "portrait of a mystical wizard",
+                    "model": Model.DALLE,
+                    "aspect": Aspect.PORTRAIT
+                },
+                {
+                    "query": "abstract geometric patterns",
+                    "model": Model.MAI1,
+                    "aspect": Aspect.SQUARE
+                }
+            ]
+
+            for config in prompts:
+                print(f"\nGenerating: {config['query']}")
+                result = await bing_art.generate(
+                    config['query'],
+                    model=config['model'],
+                    aspect=config['aspect']
+                )
+
+                print(f"Model: {result['model']}")
+                print(f"Aspect: {result['aspect']}")
+                print(f"Enhanced prompt: {result['prompt']}")
+                print(f"Generated {len(result['images'])} images")
+
+                for idx, img in enumerate(result['images'], 1):
+                    print(f"  Image {idx}: {img['url']}")
+
+            # Generate a video
+            print("\nGenerating video...")
+            video_result = await bing_art.generate(
+                'a cat playing piano',
+                content_type='video'
             )
-            
-            print(f"Model: {result['model']}")
-            print(f"Aspect: {result['aspect']}")
-            print(f"Enhanced prompt: {result['prompt']}")
-            print(f"Generated {len(result['images'])} images")
-            
-            for idx, img in enumerate(result['images'], 1):
-                print(f"  Image {idx}: {img['url']}")
-        
-        # Generate a video
-        print("\nGenerating video...")
-        video_result = bing_art.generate(
-            'a cat playing piano',
-            content_type='video'
-        )
-        print(f"Video URL: {video_result['video']['video_url']}")
-        
+            print(f"Video URL: {video_result['video']['video_url']}")
+
     except AuthCookieError as e:
         print(f"Authentication error: {e}")
     except PromptRejectedError as e:
         print(f"Prompt rejected: {e}")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-    finally:
-        bing_art.close()
 
-if __name__ == "__main__":
-    main()
-```
-
-## Session Management
-
-Always close the session when you're done:
-
-```python
-# Using try-finally
-bing_art = BingArt(auth_cookie_U='...')
-try:
-    result = bing_art.generate('your prompt')
-finally:
-    bing_art.close()
-
-# Or using context manager pattern (if you implement __enter__/__exit__)
-# This is recommended for future versions
+asyncio.run(main())
 ```
 
 ## Requirements
